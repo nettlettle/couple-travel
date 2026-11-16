@@ -1,0 +1,288 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TRIP MATE — 여행 동행 찾기</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101010;color:#f5f5f5;font-family:Arial,sans-serif}
+header{padding:25px 20px 18px;border-bottom:1px solid #333}
+.logo{font-size:12px;color:#c5ff4a;letter-spacing:3px;font-weight:bold}
+h1{font-size:29px;margin:12px 0 6px}
+.sub{color:#999;font-size:13px}
+main{max-width:680px;margin:auto;padding:18px}
+button,select,input,textarea{font:inherit}
+button{border:0;cursor:pointer}
+.primary{background:#c5ff4a;color:#111;font-weight:bold;padding:14px 18px;border-radius:8px}
+.secondary{background:#292929;color:white;padding:11px 14px;border-radius:8px}
+.top{display:flex;gap:8px;margin:12px 0}
+.top button{flex:1}
+input,select,textarea{width:100%;background:#1d1d1d;border:1px solid #393939;border-radius:8px;padding:13px;color:white;margin:6px 0 14px}
+textarea{min-height:110px;resize:vertical}
+label{font-size:12px;color:#aaa}
+.filters{display:flex;gap:8px;margin:18px 0}
+.filters input{margin:0}
+.filters select{width:42%;margin:0}
+.post{background:#1b1b1b;border:1px solid #333;border-radius:12px;padding:17px;margin:12px 0}
+.post h3{margin:0 0 10px;font-size:18px}
+.meta{font-size:12px;color:#aaa;line-height:1.8}
+.desc{font-size:14px;line-height:1.6;color:#ddd;white-space:pre-wrap;margin:12px 0}
+.tag{display:inline-block;background:#303820;color:#c5ff4a;padding:5px 8px;border-radius:5px;font-size:11px;margin-right:5px}
+.post button{margin-top:8px}
+.hidden{display:none!important}
+.panel{background:#1b1b1b;border:1px solid #333;border-radius:12px;padding:18px;margin:15px 0}
+.panel h2{font-size:19px;margin-top:0}
+.small{font-size:12px;color:#888;line-height:1.6}
+.comment{border-top:1px solid #333;padding:12px 0;font-size:14px}
+.comment small{color:#999}
+footer{padding:25px 5px;color:#777;font-size:11px;line-height:1.7}
+a{color:#c5ff4a}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">TRIP MATE / 2026</div>
+  <h1>같이 갈 사람?</h1>
+  <div class="sub">여행 일정이 맞는 사람들과 가볍게 동행을 구해보세요.</div>
+</header>
+
+<main>
+  <div class="top">
+    <button class="primary" onclick="showWrite()">＋ 동행 모집하기</button>
+    <button class="secondary" onclick="loadPosts()">새로고침 ↻</button>
+  </div>
+
+  <section id="write" class="panel hidden">
+    <h2>모집글 작성</h2>
+    <label>제목 *</label>
+    <input id="title" placeholder="예: 2월 삿포로 여행 동행 구해요">
+    <label>여행 지역</label>
+    <select id="destination">
+      <option value="">미정</option>
+      <option>도쿄</option><option>오사카</option><option>삿포로</option>
+      <option>후쿠오카</option><option>교토</option><option>기타</option>
+    </select>
+    <label>출발 공항</label>
+    <select id="airport">
+      <option value="">미정</option>
+      <option>인천공항</option><option>김해공항</option>
+      <option>대구공항</option><option>김포공항</option>
+      <option>기타</option>
+    </select>
+    <label>출발일</label>
+    <input id="start" type="date">
+    <label>도착일</label>
+    <input id="end" type="date">
+    <label>닉네임</label>
+    <input id="nickname" maxlength="20" placeholder="닉네임">
+    <label>내용 *</label>
+    <textarea id="content" placeholder="여행 일정이나 원하는 동행 방식 등을 적어주세요."></textarea>
+    <button class="primary" style="width:100%" onclick="createPost()">게시글 등록</button>
+    <button class="secondary" style="width:100%;margin-top:8px" onclick="hideWrite()">취소</button>
+  </section>
+
+  <div class="filters">
+    <select id="filter" onchange="loadPosts()">
+      <option value="">전체 지역</option>
+      <option>도쿄</option><option>오사카</option><option>삿포로</option>
+      <option>후쿠오카</option><option>교토</option><option>기타</option>
+    </select>
+    <input id="keyword" placeholder="검색어 입력" oninput="renderPosts()">
+  </div>
+
+  <div id="status" class="small">게시글을 불러오는 중...</div>
+  <div id="posts"></div>
+
+  <section id="detail" class="panel hidden">
+    <button class="secondary" onclick="closeDetail()">← 목록으로</button>
+    <div id="detailBody"></div>
+    <h3>댓글</h3>
+    <div id="comments"></div>
+    <label>댓글 작성</label>
+    <input id="commentName" maxlength="20" placeholder="닉네임">
+    <textarea id="commentText" placeholder="연락 방법이나 동행 관련 내용을 남겨주세요." style="min-height:75px"></textarea>
+    <button class="primary" onclick="addComment()">댓글 등록</button>
+  </section>
+
+  <footer>
+    ※ 처음 만나는 사람과는 사람이 많은 공개 장소에서 만나세요.<br>
+    ※ 전화번호, 숙소 주소, 항공권 예약번호 등 민감한 정보는 공개 게시판에 올리지 마세요.<br>
+    ※ 숙소 예약 및 연령 조건은 각 숙소에 직접 확인하세요.
+  </footer>
+</main>
+
+<script>
+const SUPABASE_URL = "여기에_SUPABASE_PROJECT_URL";
+const SUPABASE_KEY = "여기에_SUPABASE_ANON_KEY";
+
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let myId = null;
+let allPosts = [];
+let currentPost = null;
+
+async function init(){
+  if(SUPABASE_URL.includes("여기에_") || SUPABASE_KEY.includes("여기에_")){
+    document.getElementById("status").textContent =
+      "Supabase 주소와 키를 먼저 입력해주세요.";
+    return;
+  }
+  let {data:{session}} = await db.auth.getSession();
+  if(!session){
+    const {data,error} = await db.auth.signInAnonymously();
+    if(error){statusMsg("로그인 오류: "+error.message);return;}
+    session = data.session;
+  }
+  myId = session.user.id;
+  loadPosts();
+}
+
+function statusMsg(msg){
+  document.getElementById("status").textContent=msg;
+}
+
+function showWrite(){
+  document.getElementById("write").classList.remove("hidden");
+  document.getElementById("detail").classList.add("hidden");
+}
+function hideWrite(){
+  document.getElementById("write").classList.add("hidden");
+}
+function closeDetail(){
+  document.getElementById("detail").classList.add("hidden");
+  document.getElementById("posts").classList.remove("hidden");
+}
+
+async function loadPosts(){
+  statusMsg("불러오는 중...");
+  const {data,error}=await db.from("posts")
+    .select("*").order("created_at",{ascending:false});
+  if(error){statusMsg("오류: "+error.message);return;}
+  allPosts=data||[];
+  renderPosts();
+}
+
+function renderPosts(){
+  const area=document.getElementById("posts");
+  const region=document.getElementById("filter").value;
+  const word=document.getElementById("keyword").value.toLowerCase();
+  const filtered=allPosts.filter(p=>
+    (!region||p.destination===region) &&
+    ((p.title||"").toLowerCase().includes(word) ||
+     (p.content||"").toLowerCase().includes(word) ||
+     (p.nickname||"").toLowerCase().includes(word))
+  );
+  statusMsg("모집글 "+filtered.length+"개");
+  area.innerHTML="";
+  if(!filtered.length){
+    area.innerHTML='<div class="panel small">아직 게시글이 없어요. 첫 번째 동행을 모집해보세요!</div>';
+    return;
+  }
+  filtered.forEach(p=>{
+    const el=document.createElement("article");
+    el.className="post";
+    const date=[p.start_date,p.end_date].filter(Boolean).join(" ~ ") || "날짜 미정";
+    el.innerHTML=`
+      <span class="tag">${escapeHTML(p.destination||"지역 미정")}</span>
+      <span class="tag">${escapeHTML(p.airport||"출발지 미정")}</span>
+      <h3>${escapeHTML(p.title)}</h3>
+      <div class="meta">${escapeHTML(p.nickname||"익명")} · ${escapeHTML(date)} · ${new Date(p.created_at).toLocaleDateString("ko-KR")}</div>
+      <div class="desc">${escapeHTML(p.content.slice(0,130))}${p.content.length>130?"…":""}</div>
+      <button class="secondary" onclick="openDetail('${p.id}')">자세히 보기 / 댓글</button>
+      ${p.user_id===myId?`<button class="secondary" onclick="deletePost('${p.id}')">내 글 삭제</button>`:""}
+    `;
+    area.appendChild(el);
+  });
+}
+
+function escapeHTML(value){
+  return String(value??"").replace(/[&<>"']/g,c=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  })[c]);
+}
+
+async function createPost(){
+  const title=document.getElementById("title").value.trim();
+  const content=document.getElementById("content").value.trim();
+  if(!title||!content){alert("제목과 내용을 입력해주세요.");return;}
+  const post={
+    title,content,
+    destination:document.getElementById("destination").value,
+    airport:document.getElementById("airport").value,
+    start_date:document.getElementById("start").value||null,
+    end_date:document.getElementById("end").value||null,
+    nickname:document.getElementById("nickname").value.trim()||"익명",
+    user_id:myId
+  };
+  const {error}=await db.from("posts").insert(post);
+  if(error){alert("등록 실패: "+error.message);return;}
+  ["title","content","start","end","nickname"].forEach(id=>document.getElementById(id).value="");
+  hideWrite();
+  await loadPosts();
+  alert("게시글이 등록됐어요!");
+}
+
+async function deletePost(id){
+  if(!confirm("이 게시글을 삭제할까요?"))return;
+  const {error}=await db.from("posts").delete().eq("id",id);
+  if(error){alert(error.message);return;}
+  closeDetail();
+  loadPosts();
+}
+
+async function openDetail(id){
+  currentPost=allPosts.find(p=>p.id===id);
+  if(!currentPost)return;
+  document.getElementById("posts").classList.add("hidden");
+  document.getElementById("detail").classList.remove("hidden");
+  const date=[currentPost.start_date,currentPost.end_date].filter(Boolean).join(" ~ ")||"날짜 미정";
+  document.getElementById("detailBody").innerHTML=`
+    <h2>${escapeHTML(currentPost.title)}</h2>
+    <div class="meta">${escapeHTML(currentPost.nickname||"익명")} · ${escapeHTML(currentPost.destination||"지역 미정")} · ${escapeHTML(currentPost.airport||"출발지 미정")}<br>${escapeHTML(date)}</div>
+    <div class="desc">${escapeHTML(currentPost.content)}</div>`;
+  await loadComments();
+}
+
+async function loadComments(){
+  const {data,error}=await db.from("comments").select("*")
+    .eq("post_id",currentPost.id).order("created_at",{ascending:true});
+  const area=document.getElementById("comments");
+  if(error){area.textContent="댓글을 불러오지 못했어요.";return;}
+  area.innerHTML="";
+  if(!data.length){area.innerHTML='<p class="small">첫 댓글을 남겨보세요.</p>';return;}
+  data.forEach(c=>{
+    const el=document.createElement("div");
+    el.className="comment";
+    el.innerHTML=`<b>${escapeHTML(c.nickname||"익명")}</b>
+      <small> · ${new Date(c.created_at).toLocaleString("ko-KR")}</small>
+      <p>${escapeHTML(c.content)}</p>
+      ${c.user_id===myId?`<button class="secondary" onclick="deleteComment('${c.id}')">삭제</button>`:""}`;
+    area.appendChild(el);
+  });
+}
+
+async function addComment(){
+  const content=document.getElementById("commentText").value.trim();
+  const nickname=document.getElementById("commentName").value.trim()||"익명";
+  if(!content){alert("댓글 내용을 입력해주세요.");return;}
+  const {error}=await db.from("comments").insert({
+    post_id:currentPost.id,content,nickname,user_id:myId
+  });
+  if(error){alert("댓글 등록 실패: "+error.message);return;}
+  document.getElementById("commentText").value="";
+  loadComments();
+}
+
+async function deleteComment(id){
+  if(!confirm("댓글을 삭제할까요?"))return;
+  const {error}=await db.from("comments").delete().eq("id",id);
+  if(error){alert(error.message);return;}
+  loadComments();
+}
+
+init();
+</script>
+</body>
+</html>
